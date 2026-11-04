@@ -12,7 +12,7 @@ from fastapi.responses import JSONResponse
 from sqlalchemy import select
 from starlette.exceptions import HTTPException
 
-from keyholder.api import admin, billing, public, storage
+from keyholder.api import admin, billing, operations, public, storage
 from keyholder.backends.registry import backend_configs, build_backends
 from keyholder.config import Settings
 from keyholder.db import make_database
@@ -80,6 +80,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     )
     app.include_router(public.router)
     app.include_router(admin.router)
+    app.include_router(operations.router)
     app.include_router(billing.router)
     app.include_router(storage.router)
 

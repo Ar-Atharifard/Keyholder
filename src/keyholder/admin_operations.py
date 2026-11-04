@@ -6,16 +6,28 @@ import logging
 import os
 import sys
 from contextvars import ContextVar
-from typing import Any
+from typing import Any, cast
 from urllib.error import HTTPError
 from urllib.parse import quote
 from urllib.request import HTTPRedirectHandler, ProxyHandler, Request, build_opener
 
+from fastapi import FastAPI
+
+from keyholder.config import Settings
 from keyholder.profile_types import DEFAULT_PROFILES, SUPPORTED_KINDS
 
 DEFAULT_KINDS: list[str] = list(DEFAULT_PROFILES)
 KINDS = list(SUPPORTED_KINDS)
 SELECTED: ContextVar[str] = ContextVar("backend_id", default="marzban-default")
+
+
+APPLICATION: ContextVar[FastAPI | None] = ContextVar("operator_application", default=None)
+
+
+def operation_settings() -> Settings:
+
+    app = APPLICATION.get()
+    return cast(Settings, app.state.settings) if app is not None else Settings()  # type: ignore[call-arg]
 
 
 def backend_id() -> str:
@@ -44,6 +56,37 @@ def api(
     media_type: str = "application/json",
     maximum: int = 1024 * 1024,
 ) -> Any:
+    app = APPLICATION.get()
+    if app is not None:
+        import anyio
+        import httpx
+
+        async def invoke() -> Any:
+            async with httpx.AsyncClient(
+                transport=httpx.ASGITransport(app=app), base_url="http://keyholder"
+            ) as client:
+                response = await client.request(
+                    method,
+                    path,
+                    content=data if data is not None else None,
+                    json=body if data is None else None,
+                    headers={
+                        "Authorization": "Bearer "
+                        + app.state.settings.admin_key.get_secret_value(),
+                        "Content-Type": media_type,
+                        **({"Idempotency-Key": key} if key else {}),
+                    },
+                )
+                if response.is_error:
+                    raise OperatorError(
+                        "API returned HTTP " + str(response.status_code),
+                        status=response.status_code,
+                    )
+                if len(response.content) > maximum:
+                    raise OperatorError("API response exceeds the operator limit.")
+                return response.content if raw else response.json()
+
+        return anyio.from_thread.run(invoke)
     request = Request(
         os.getenv("KEYHOLDER_OPERATOR_API_URL", "http://127.0.0.1:18000").rstrip("/") + path,
         data=data if data is not None else json.dumps(body).encode() if body is not None else None,
@@ -114,11 +157,10 @@ async def upstream(username: str, profiles: list[str]) -> dict[str, Any]:
 
     from keyholder.backends.base import UpstreamError, UpstreamUnavailable
     from keyholder.backends.registry import build_backends
-    from keyholder.config import Settings
     from keyholder.rendering.profiles import allowed_cdn, generate_profiles
     from keyholder.schemas import Policy
 
-    settings = Settings()  # type: ignore[call-arg]
+    settings = operation_settings()
     try:
         async with asyncio.timeout(settings.upstream_timeout):
             async with httpx.AsyncClient(trust_env=False, follow_redirects=False) as client:
@@ -190,10 +232,9 @@ def _execute(operation: str, args: dict[str, Any]) -> Any:
 
         from sqlalchemy.engine import make_url
 
-        from keyholder.config import Settings
         from keyholder.vault import decrypt
 
-        settings = Settings()  # type: ignore[call-arg]
+        settings = operation_settings()
         filename = make_url(settings.database_url).database
         with sqlite3.connect("file:" + str(filename) + "?mode=ro", uri=True) as db:
             integrity = db.execute("PRAGMA integrity_check").fetchall() == [("ok",)]
@@ -312,7 +353,6 @@ def _execute(operation: str, args: dict[str, Any]) -> Any:
         import base64
         import hashlib
 
-        from keyholder.config import Settings
         from keyholder.rendering.profiles import normalize
         from keyholder.security import valid_token
 
@@ -322,7 +362,7 @@ def _execute(operation: str, args: dict[str, Any]) -> Any:
         if not valid_token(token):
             raise OperatorError("Subscription token is unavailable.")
         contents = api("GET", "/s/" + token + "?format=uri", raw=True)
-        settings = Settings()  # type: ignore[call-arg]
+        settings = operation_settings()
         networks = getattr(settings, "allowed_cdn_networks", ())
         entries: dict[str, dict[str, Any]] = {}
         try:
@@ -427,11 +467,10 @@ def inbound_catalog(
 ) -> dict[str, Any]:
     import hashlib
 
-    from keyholder.config import Settings
     from keyholder.rendering.inbound_preview import host_profiles
     from keyholder.rendering.profiles import normalize
 
-    settings = Settings()  # type: ignore[call-arg]
+    settings = operation_settings()
     account_key = backend_id() + "/" + user["username"]
     known = [
         p
@@ -505,9 +544,8 @@ async def panel_operation(operation: str, args: dict[str, Any]) -> Any:
 
     from keyholder.backends.marzban import MarzbanBackend
     from keyholder.backends.registry import build_backends
-    from keyholder.config import Settings
 
-    settings = Settings()  # type: ignore[call-arg]
+    settings = operation_settings()
     async with httpx.AsyncClient(
         trust_env=False, follow_redirects=False, timeout=settings.upstream_timeout
     ) as client:
@@ -742,8 +780,11 @@ def main() -> None:
         payload = json.loads(raw)
         if len(raw) > 16384 and payload.get("operation") != "billing-receipt-upload":
             raise ValueError("Request too large")
-        result = execute(payload["operation"], payload["args"])
-        print(json.dumps({"ok": True, "result": result}))
+        if payload["operation"] == "doctor":
+            result = {"ok": True, "result": execute(payload["operation"], payload["args"])}
+        else:
+            result = api("POST", "/admin/operations", payload, maximum=8 * 1024 * 1024)
+        print(json.dumps(result))
     except OperatorError as error:
         print(json.dumps({"ok": False, "error": str(error)}))
     except Exception:

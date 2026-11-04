@@ -92,3 +92,11 @@ def domestic_inputs() -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
             },
         },
     )
+
+
+def backup_database(source: object, destination: object) -> None:
+    """Create an independent SQLite snapshot for application recovery contracts."""
+    import sqlite3
+
+    with sqlite3.connect(str(source)) as original, sqlite3.connect(str(destination)) as copy:
+        original.backup(copy)

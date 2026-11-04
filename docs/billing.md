@@ -138,71 +138,9 @@ to reach 80% usage before reserving a new image; if protections prevent room, th
 image is refused while payment entry remains available. Data is not credited as
 reclaimed until version deletion is verified. Cleanup never deletes financial rows.
 
-## Coordinate recovery
+## Recovery integration
 
-Install the matched API, CLI, bot and recovery helpers, including `billing_bot.py`
-and `storage_budget.py`. Add a `storage` object to the private recovery capture
-configuration using `deploy/recovery/storage.example.json`; choose the real private
-API environment path. Include these helper files/configuration in recovery inventory.
-Old capture configurations without this opt-in retain legacy backup behavior and
-have no shared capacity enforcement. Enable this integration before image intake.
-
-The scheduled capture measures B2 usage, locks receipt changes, snapshots the database
-and checksums available images into the encrypted recovery bundle. A mode-0700
-foreign-host cache, bounded by the live image budget, downloads only missing image
-content. Immutable cache files are hard-linked into capture staging to avoid another
-full disk copy and allow restic to reuse unchanged files. Cache files no longer
-referenced by available receipts are removed; validate local disk capacity before
-enabling intake. No production receipt cache is copied to the laptop. It then
-releases the receipt lock and reserves a conservative upper bound for the upload.
-No upload starts on stale measurements or insufficient capacity. Recovery upload
-reservations may borrow temporary headroom within the total 10 GB ceiling; receipt
-uploads cannot. If completed recovery data remains above its 6 GB budget after safe
-cleanup, further uploads stop and require capacity/retention review. Admission uses
-a conservative bound rather than promising a particular deduplication ratio. Current image
-exports are still required; the new ledger does not weaken recovery contents.
-
-Successful budgeted uploads are marked `keyholder-complete` only after restic
-returns success. Partial/legacy unmarked snapshots are excluded from automatic
-history reduction; review and verify them separately before changing their tags.
-Normal retention remains seven daily/four weekly plus the latest two successful
-points, configurable in the private `storage` object. When recovery exceeds 90%,
-automatic capacity-driven history reduction requires
-`KEYHOLDER_STORAGE_RECOVERY_CLEANUP_ENABLED=true`. It checks the repository, forgets
-oldest eligible snapshots and prunes toward 80%, always protecting the latest two
-complete points. Weekly maintenance checks before and after ordinary pruning.
-
-Preview the recovery candidates before enabling capacity-driven history reduction:
-
-```sh
-sudo keyholder-recovery capacity-preview --config /etc/keyholder/recovery.json --work /var/lib/keyholder-recovery
-```
-
-The preview reports protected points and oldest eligible candidates and runs restic
-pruning in dry-run mode. It does not delete snapshots or objects.
-
-No live restic object gets an age-based B2 expiration rule. Restic owns pack deletion;
-a scoped hidden-version lifecycle rule reclaims already-deleted versions. Reclamation
-can be delayed: if bytes do not fall after pruning, stop shrinking history and report
-that delay rather than deleting extra snapshots. Recovery reserves temporary headroom
-for repacking. Failure never permits paid overflow or deletion of protected points.
-
-Add `storage_status_file: /var/lib/keyholder-recovery/storage.json` to the private
-monitor configuration. Existing alert transition/deduplication handles warnings at
-80%, critical usage at 90%, blocked/stale measurements and resolution. Capture updates
-the report every 12 hours; bounded retries respect API rate limits during large captures; stale status and failed recovery units remain actionable.
-
-After a verified fresh-host database restore, rehydrate missing objects explicitly:
-
-```sh
-sudo keyholder-recovery restore-receipts --bundle PRIVATE_RESTORED_BUNDLE --config /etc/keyholder/recovery.json --work /var/lib/keyholder-recovery
-```
-
-This verifies the bundle, restores image bytes under the original receipt identities
-and updates storage version references; a new bucket cannot preserve old B2 version
-IDs. It refuses mismatched or expired records. Restore the SQL database first, keep
-production/customer acceptance gates, and test on synthetic isolated infrastructure.
-
-Before production activation: review cleanup previews, account-wide usage, B2 scope,
-actual bundle size, deployed image/schema, credentials and a tested rollback/restore.
-Storage configuration and local tests do not prove a full two-server recovery time.
+Capture the database, token encryption key and available encrypted receipt objects
+as one consistent recovery point. Use the storage API reservations to coordinate
+receipt changes with external backup capture. Client packages and operational
+recovery implementation have separate releases.

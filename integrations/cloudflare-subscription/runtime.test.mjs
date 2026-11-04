@@ -1,5 +1,5 @@
 // Optional platform contract test. Uses synthetic data and no Internet access.
-// WORKERD_BIN=/path/to/workerd node --test deploy/cloudflare-subscription/runtime.test.mjs
+// WORKERD_BIN=/path/to/workerd node --test integrations/cloudflare-subscription/runtime.test.mjs
 import test from "node:test";
 import assert from "node:assert/strict";
 import { mkdtemp, copyFile, writeFile, rm } from "node:fs/promises";

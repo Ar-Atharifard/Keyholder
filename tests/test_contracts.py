@@ -13,8 +13,7 @@ from keyholder.main import create_app
 from keyholder.rendering.profiles import generate_profiles
 from keyholder.rendering.renderers import URIRenderer, XrayRenderer
 from keyholder.schemas import Policy
-from scripts.backup_database import backup_database
-from tests.support import ADMIN_KEY, ALL, HEADERS, create
+from tests.support import ADMIN_KEY, ALL, HEADERS, backup_database, create
 
 CONTRACTS = Path(__file__).parent / "contracts"
 

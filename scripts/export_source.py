@@ -27,6 +27,12 @@ def source_files(root: Path) -> list[Path]:
         actual = root / path
         if not actual.exists():
             continue
+        if path.parts[0] == "deploy" or (
+            path.parts[0] == "scripts"
+            and path.name
+            not in {"__init__.py", "export_source.py", "export_openapi.py", "release_manifest.py"}
+        ):
+            raise ValueError("Operational source in public export; publication refused")
         if actual.is_symlink():
             raise ValueError("Symlink export refused")
         if actual.is_file():
