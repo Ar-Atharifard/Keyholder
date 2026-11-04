@@ -1,61 +1,164 @@
-name: Checks
+name: CI
+
 on:
   push:
+    branches: [master]
   pull_request:
-  workflow_call:
+    branches: [master]
+  workflow_dispatch:
+
 permissions:
   contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  UV_VERSION: '0.13.0'
+  UV_FROZEN: 'true'
+
 jobs:
-  delivery-worker:
-    runs-on: ubuntu-latest
+  quality:
+    name: Quality
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
-          node-version: '22'
-      - run: node --test integrations/cloudflare-subscription/worker.test.mjs
-      - name: Verify Cloudflare runtime contract with synthetic upstream
+          python-version: '3.12'
+      - run: python -m pip install "uv==$UV_VERSION"
+      - run: uv sync --extra dev
+      - run: uv run ruff check .
+      - run: uv run ruff format --check .
+      - run: uv run mypy src tests scripts
+      - name: Validate GitHub Actions workflows
         run: |
-          npm install --prefix "$RUNNER_TEMP/keyholder-workerd" --ignore-scripts --no-audit --no-fund @cloudflare/workerd-linux-64@1.20261016.1
-          WORKERD_BIN="$RUNNER_TEMP/keyholder-workerd/node_modules/@cloudflare/workerd-linux-64/bin/workerd" node --test integrations/cloudflare-subscription/runtime.test.mjs
-  checks:
-    runs-on: ubuntu-latest
+          curl --fail --silent --show-error --location \
+            https://github.com/rhysd/actionlint/releases/download/v1.7.12/actionlint_1.7.12_linux_amd64.tar.gz \
+            --output "$RUNNER_TEMP/actionlint.tar.gz"
+          echo "8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8  $RUNNER_TEMP/actionlint.tar.gz" | sha256sum --check
+          tar -xzf "$RUNNER_TEMP/actionlint.tar.gz" -C "$RUNNER_TEMP" actionlint
+          "$RUNNER_TEMP/actionlint" -color
+
+  tests:
+    name: Tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
     env:
       KEYHOLDER_ADMIN_KEY: ci-synthetic-admin-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
       KEYHOLDER_DATABASE_URL: sqlite:////tmp/keyholder-ci.db
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: '3.12'
+      - run: python -m pip install "uv==$UV_VERSION"
+      - run: uv sync --extra dev
+      - run: uv run pytest -q
+      - name: Verify fresh database migrations and model consistency
+        run: |
+          uv run alembic upgrade head
+          uv run alembic check
+
+  worker:
+    name: Worker
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '22'
+      - run: node --test integrations/cloudflare-subscription/worker.test.mjs
+      - name: Verify Cloudflare runtime with a synthetic upstream
+        run: |
+          npm install --prefix "$RUNNER_TEMP/keyholder-workerd" --ignore-scripts --no-audit --no-fund @cloudflare/workerd-linux-64@1.20261016.1
+          WORKERD_BIN="$RUNNER_TEMP/keyholder-workerd/node_modules/@cloudflare/workerd-linux-64/bin/workerd" \
+            node --test integrations/cloudflare-subscription/runtime.test.mjs
+
+  secrets:
+    name: Secret scan
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
           persist-credentials: false
-      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+      - name: Scan source and complete Git history
+        run: |
+          curl --fail --silent --show-error --location \
+            https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_x64.tar.gz \
+            --output "$RUNNER_TEMP/gitleaks.tar.gz"
+          echo "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb  $RUNNER_TEMP/gitleaks.tar.gz" | sha256sum --check
+          tar -xzf "$RUNNER_TEMP/gitleaks.tar.gz" -C "$RUNNER_TEMP" gitleaks
+          "$RUNNER_TEMP/gitleaks" git --redact --no-banner .
+
+  build:
+    name: Build
+    needs: [quality, tests, worker, secrets]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      KEYHOLDER_ADMIN_KEY: ci-synthetic-admin-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: '3.12'
-      - run: python -m pip install uv==0.13.0
-      - run: uv sync --frozen --extra dev
-      - run: uv run pytest -q
-      - run: uv run ruff check .
-      - run: uv run ruff format --check .
-      - run: uv run mypy src tests scripts
-      - run: git diff --check
-      - run: uv run alembic upgrade head
-      - run: uv run python scripts/export_openapi.py --output /tmp/keyholder-openapi.json
-      - run: uv build
-      - run: docker build --tag keyholder:ci .
-      - run: uv run python scripts/export_source.py --output /tmp/keyholder-source.tar.gz
-      - name: Scan source and history for secrets
-        shell: bash
+      - run: python -m pip install "uv==$UV_VERSION"
+      - run: uv sync --extra dev
+      - name: Build Python distributions, source archive and API schema
         run: |
-          set -euo pipefail
-          version=8.30.1
-          package="gitleaks_${version}_linux_x64.tar.gz"
-          base="https://github.com/gitleaks/gitleaks/releases/download/v${version}"
-          curl --fail --silent --show-error --location "$base/$package" --output "/tmp/$package"
-          curl --fail --silent --show-error --location "$base/gitleaks_${version}_checksums.txt" --output /tmp/checksums.txt
-          cd /tmp
-          sha256sum --check --ignore-missing checksums.txt
-          tar -xzf "$package" gitleaks
-          cd "$GITHUB_WORKSPACE"
-          /tmp/gitleaks git --redact --no-banner .
+          uv build --out-dir dist
+          uv run python scripts/export_source.py --output dist/keyholder-source.tar.gz
+          uv run python scripts/export_openapi.py --output dist/openapi.json
+      - name: Verify the installed wheel outside the source checkout
+        run: |
+          uv venv "$RUNNER_TEMP/wheel-check"
+          uv pip install --python "$RUNNER_TEMP/wheel-check/bin/python" dist/*.whl
+          "$RUNNER_TEMP/wheel-check/bin/python" -I -c \
+            'from keyholder.main import create_app; assert "/health" in create_app().openapi()["paths"]'
+      - name: Build the application image
+        run: |
+          docker build --platform linux/amd64 \
+            --label "org.opencontainers.image.source=$GITHUB_SERVER_URL/$GITHUB_REPOSITORY" \
+            --label "org.opencontainers.image.revision=$GITHUB_SHA" \
+            --tag keyholder:ci .
+      - name: Verify migrations and application imports inside the image
+        run: |
+          docker run --rm --network none \
+            -e KEYHOLDER_ADMIN_KEY -e KEYHOLDER_DATABASE_URL=sqlite:////tmp/smoke.db \
+            --entrypoint /bin/sh keyholder:ci -ec '
+              /app/.venv/bin/alembic upgrade head
+              /app/.venv/bin/alembic check
+              /app/.venv/bin/python -c "from keyholder.main import create_app; assert create_app().openapi()"
+            '
+      - name: Export the image and checksums
+        run: |
+          docker save keyholder:ci | gzip > dist/keyholder-image.tar.gz
+          printf '%s\n' "$GITHUB_SHA" > dist/COMMIT
+          cd dist
+          sha256sum -- * > SHA256SUMS
+      - name: Save build artifacts
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: keyholder-${{ github.sha }}
+          path: dist/
+          if-no-files-found: error
+          retention-days: 7
+          compression-level: 0

@@ -14,6 +14,9 @@ the authenticated transport used by external administration clients.
 from `scripts/export_source.py` reject runtime secrets and operational payloads.
 The generic forwarding Worker is tested separately with Node and workerd in CI.
 
+See [CI and builds](ci.md) for the job responsibilities, triggers and downloadable
+build artifacts.
+
 Administrative orchestration stays in `admin_operations.py` and the authenticated
 `api/operations.py` boundary. Panel credentials and database mutations belong here;
 external clients provide grammar, confirmation and display. Public software must
