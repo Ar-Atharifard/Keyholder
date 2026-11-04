@@ -3,7 +3,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 [project]
 name = "keyholder"
-version = "0.2.0"
+version = "0.3.0"
 description = "Stable, provider-adaptable proxy subscription delivery"
 readme = "README.md"
 license = "MIT"
@@ -19,8 +19,6 @@ dependencies = [
     "boto3>=1.35,<2",
     "pillow>=11,<13",
 ]
-[project.scripts]
-keyholder = "keyholder.cli:main"
 
 [project.optional-dependencies]
 dev = [
@@ -43,5 +41,25 @@ testpaths = ["tests"]
 packages = ["src/keyholder"]
 
 [tool.hatch.build.targets.sdist]
-include = ["src", "tests", "migrations", "scripts", "deploy", "docs", ".github", ".gitleaks.toml", "README.md", "LICENSE", "CONTRIBUTING.md", "SECURITY.md", "pyproject.toml", "uv.lock", "alembic.ini", "docker-compose.yml", ".env.example", ".gitignore", ".dockerignore"]
+include = [
+    "src",
+    "tests",
+    "migrations",
+    "scripts",
+    "integrations",
+    "docs",
+    ".github",
+    ".gitleaks.toml",
+    "README.md",
+    "LICENSE",
+    "CONTRIBUTING.md",
+    "SECURITY.md",
+    "pyproject.toml",
+    "uv.lock",
+    "alembic.ini",
+    "docker-compose.yml",
+    ".env.example",
+    ".gitignore",
+    ".dockerignore",
+]
 exclude = [".private", ".audit", ".venv", "dist", "build", "data", "logs"]

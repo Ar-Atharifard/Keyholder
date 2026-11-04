@@ -170,3 +170,18 @@ Conflicts return 409; invalid money/images 422; oversized upload 413; expired co
 410; stale usage/unconfigured storage 503; exhausted budgets 507. Existing public
 subscription/customer schemas remain unchanged. Offline OpenAPI includes the new
 request schemas; no live documentation endpoint is enabled.
+
+## Administrative operation protocol v1
+
+`POST /admin/operations` requires the same administrator Bearer key as other admin
+endpoints. Request: `{"operation":"list","args":{"limit":20,"offset":0}}`.
+Success: `{"ok":true,"result":...}`. Errors use the documented HTTP error envelope.
+No arbitrary code, shell commands, host maintenance or deployment operations are
+accepted. The operation names and argument shapes match CLI dispatcher protocol v1.
+Explicit confirmation flags are required server-side for revoke, token rotation,
+traffic reset, reconciliation and inbound replacement. The API owns panel credentials.
+Clients must inspect state after an uncertain mutation response before retrying.
+
+This additive endpoint preserves the existing `/admin/customers` and subscription
+contracts. It is available in core 0.3.0 with the repository split. Pin the release
+commit, image digest and artifact checksums to distinguish it from earlier builds.
