@@ -70,8 +70,8 @@ jobs:
           set -euo pipefail
           cat > "$RUNNER_TEMP/release-notes" <<'NOTES'
           Review the manifest and generated checksums before publishing or deploying.
-          The source archive includes operational tools and Ansible files. The wheel
-          contains the backend/CLI; it does not install system services or migrate a database.
+          The source archive and wheel contain the application and public integrations;
+          the application it does not install system services or migrate a database.
           Building this release did not deploy either server. Use the image digest,
           not a mutable tag, and review database migration and rollback requirements.
           NOTES

@@ -1,4 +1,0 @@
-#!/bin/sh
-# Compatibility entry point for the existing recovery command.
-set -eu
-exec "$(dirname -- "$0")/run" foreign "$@"
