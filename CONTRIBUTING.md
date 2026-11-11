@@ -9,8 +9,6 @@ Run pytest, Ruff, mypy and `git diff --check`. Explain behavior, validation and
 compatibility in the pull request. Provider adapters need mocked contract tests;
 new transports additionally need installed-core and real-network validation.
 
-Do not mix application changes with unreviewed infrastructure deployment. New
-services, databases or background jobs require a demonstrated requirement.
 Contributions are distributed under the project's MIT license. Preserve attribution
 and compatible licensing for any reused code; see
 [upstream licensing](docs/development.md#upstream-licensing).
@@ -21,6 +19,5 @@ testing, security and licensing requirements apply.
 
 File server/API issues here and CLI/Telegram interaction issues in `keyholder-admin`.
 Include compatible component versions and reproduction steps with synthetic data.
-Infrastructure-specific procedures belong to the operator, not public application
-issues. Cross-repository work uses linked changes and explicit compatibility tests,
-not copied source or submodule updates.
+For coordinated backend/client changes, link the pull requests and document the
+compatible versions.
