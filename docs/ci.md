@@ -1,38 +1,47 @@
 # CI and builds
 
 One workflow runs on pushes to `master`, pull requests into `master`, and manual
-runs from the Actions tab. New runs cancel older runs for the same branch or PR.
+runs. New runs cancel older runs for the same workflow/ref. It has three jobs:
 
-| Job | Responsibility |
+| Job | Contents |
 | --- | --- |
-| Quality | Ruff lint/format, strict mypy and workflow validation |
-| Tests | Application/contract tests, fresh SQLite migration and schema consistency |
-| Worker | Node unit tests and a real workerd test against a synthetic upstream |
-| Secret scan | Gitleaks against the complete checked-out Git history |
-| Build | After all four checks pass: packages, source, OpenAPI and Docker image; isolated wheel and container checks |
+| Verify | Ruff lint/format, strict mypy, workflow validation, full-history secret scan, Python/contract tests and fresh SQLite migration/schema checks |
+| Worker | Node tests and a real workerd test with a synthetic upstream |
+| Build | After both pass: packages, source, OpenAPI, isolated wheel smoke test, Docker build and offline container migration/import checks |
 
-The first four jobs run in parallel. The build runs once, on Linux amd64 with
-Python 3.12, matching the application image. All jobs have timeouts and read-only
-repository permissions. Actions are pinned by commit; downloaded validation tools
-are pinned by version and checksum. No production secrets are required.
+Verify and Worker run in parallel. Python checks share one environment rather than
+reinstalling dependencies in separate quality/test jobs. Build has a clean environment;
+wheel dependencies come from the lockfile. Wheel and container smoke tests cover
+installation boundaries that source tests cannot. No deployment matrix, custom
+Actions framework or production runner is needed for the supported amd64 image.
 
-Download `keyholder-<commit>` from a successful run's **Artifacts** section within
-seven days. It contains the wheel, source distribution, reviewed source archive,
-OpenAPI schema, compressed Docker image, `COMMIT` and `SHA256SUMS`. After extracting:
+All jobs have timeouts and read-only repository permissions. Actions use commit
+pins; downloaded validation tools use version/checksum pins. Lockfile installs are
+frozen. No production credentials or server connections are involved.
+
+PRs build and smoke-test the software, but do not save the large image archive.
+Default-branch builds also export the image and upload `keyholder-<commit>` under
+the run's **Artifacts** section for seven days. A manual default-branch run can
+rebuild expired artifacts; it is a new build, not proof of byte-identical output.
+
+The download contains the wheel, sdist, reviewed source archive, OpenAPI schema,
+compressed Docker image, `COMMIT`, `IMAGE`, `IMAGE_ID` and `SHA256SUMS`. After extracting:
 
 ```sh
 sha256sum -c SHA256SUMS
 docker load -i keyholder-image.tar.gz
 ```
 
-These are CI build artifacts, not published releases. The workflow does not push
-images, create GitHub releases, deploy services or contact operational servers.
-The previous manual publishing workflow has been removed.
+These are CI artifacts, not published releases. The workflow does not push images,
+create GitHub releases or deploy. The image tag includes the full Git SHA instead of a shared `ci`/`latest` tag.
+Verify the loaded image ID against `IMAGE_ID` and record it for deployment/rollback;
+a tag alone is not an immutable identity.
+The old publishing workflow was removed.
 
-For branch protection on `master`, require **Quality**, **Tests**, **Worker**,
-**Secret scan** and **Build**. Require all five: a skipped dependent build alone
-must not stand in for successful validation. Configure this in GitHub repository
-settings; committing the workflow does not enable branch protection.
+For branch protection, require **Verify**, **Worker** and **Build**. Do not require
+only Build: a skipped dependent job must not substitute for successful checks.
+Replace the old Quality/Tests/Secret scan requirements when this workflow lands;
+repository settings are not changed by committing YAML.
 
-The separately checked-out admin client is not part of this repository yet. Its
-pipeline stays independent until the package is moved into this public repository.
+`keyholder-admin` has its own package checks and release lifecycle. Private infra
+validates its own playbooks and pinned cross-repository integration separately.
