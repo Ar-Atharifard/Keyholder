@@ -53,7 +53,8 @@ Registration attaches local identity to an existing upstream account; the API do
 not provision panel users. It atomically returns the same canonical identity/token
 for repeated backend/account registration (201 retained for compatibility); it does
 not update metadata on repeated calls. Listing is ordered by creation/ID, contains
-no total count and never exposes URLs. Provisioning/inventory is in the CLI.
+no total count and never exposes URLs. Provisioning/inventory uses the separate
+administrative operation endpoint below, exposed by the admin CLI/bot.
 
 Inbound defaults apply only to future CLI/bot provisioning. Tags must be unique,
 nonempty, at most 200 characters each (1–128 tags). The CLI validates them against
@@ -102,7 +103,7 @@ Only active local/upstream accounts receive configurations. Invalid/malformed or
 unsupported profiles are omitted; no compatible output returns 503. XHTTP `extra`
 is stripped from URI/JSON transport output, not unrelated fields. Certificate
 verification remains enabled; upstream ECH is ignored and trusted native ECH is
-controlled by [settings](getting-started.md#settings). Delivery never edits inbounds.
+controlled by [configuration](configuration.md). Delivery never edits inbounds.
 
 When available, `subscription-userinfo` contains byte counters and Unix expiry:
 `upload=0; download=1024; total=4096; expire=1893456000`. Zero total/expiry means
@@ -136,8 +137,9 @@ are read-only and must enforce availability; see [provider boundary](development
 
 `/docs`, `/redoc`, `/openapi.json` and retired `/admin/settings/ech` are unavailable.
 Generate offline OpenAPI with `scripts/export_openapi.py` (no production secrets,
-DB creation or lifespan startup). No delete-customer, automated billing, node-management,
-plan, provisioning or application-settings API is implemented.
+DB creation or lifespan startup). No delete-customer, automatic payment-to-plan
+activation, node-management, plan-catalog or general application-settings API is
+implemented. Account provisioning is available through `/admin/operations`, below.
 
 ## Private ledger and storage
 

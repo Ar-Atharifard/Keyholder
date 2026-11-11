@@ -14,5 +14,10 @@ starting an upgraded application. Back up the database and encryption key togeth
 
 Receipt storage is an optional reusable billing feature; see [billing](billing.md).
 The subscription forwarding integration is documented under
-`integrations/cloudflare-subscription`. Supply account bindings and deployment
+[the subscription integration](../integrations/cloudflare-subscription/README.md). Supply account bindings and deployment
 settings externally.
+
+The application does not install the `keyholder` command or a Telegram bot. Use the
+separate public `keyholder-admin` package and a compatible authorized dispatcher.
+Host services, SSH policy, backups and production deployment are operator concerns,
+not application environment setup. No private repository is required to run the API.

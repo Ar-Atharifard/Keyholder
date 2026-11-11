@@ -5,6 +5,10 @@ service status, expiry, quota and selected inbounds. Recording a purchase, confi
 payment or delivered gift does not change the panel. Use explicit `user update`
 operations separately after reviewing the agreed terms.
 
+The command examples below use the separate public `keyholder-admin` client.
+Install/configure that client and a compatible server dispatcher first; the backend
+package does not provide these shell commands.
+
 ## Record a purchase and payment
 
 Run `keyholder help RESOURCE ACTION` for complete flags. Existing customer selectors

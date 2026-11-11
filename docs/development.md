@@ -22,3 +22,40 @@ Administrative orchestration stays in `admin_operations.py` and the authenticate
 external clients provide grammar, confirmation and display. Public software must
 not import deployment/host implementations. Contract snapshots and migrations are
 retained; module size alone is not a reason to create additional abstractions.
+
+## Repository ownership
+
+Keep reusable server logic here. `keyholder-admin` owns command grammar, SSH
+transport, Telegram interaction, confirmations and presentation. Private
+`keyholder-infra` owns host privileges and deployment. Neither public package imports
+private infrastructure; the client does not import server models or source.
+
+For a coordinated feature, change the server contract first or preserve compatibility
+with older clients, add tests on each side, and record the compatible versions.
+Use sibling checkouts when working across repositories; no submodule or matching
+version numbers are required. Deployment selects exact tested artifacts separately.
+
+| Path | Owns |
+| --- | --- |
+| `src/keyholder/api/`, `admin_operations.py` | Authenticated routes and account orchestration |
+| `src/keyholder/backends/` | Provider integration |
+| `src/keyholder/rendering/` | Subscription parsing and output |
+| `src/keyholder/models.py`, `billing*.py`, `storage.py`, `object_storage.py` | Identity, financial history and optional object storage |
+| `migrations/` | Database schema history |
+| `integrations/cloudflare-subscription/` | Generic Worker and its tests |
+| `scripts/` | Schema/source export and build helpers |
+| `tests/` | Application and frozen compatibility contracts |
+
+## Upstream licensing
+
+Keyholder's [MIT license](../LICENSE) covers this project's code. Integration does
+not relicense [Marzban](https://github.com/Gozargah/Marzban/blob/master/LICENSE) or
+[Marzban Node](https://github.com/Gozargah/Marzban-node/blob/master/LICENSE), which
+use AGPLv3. Keep upstream notices and satisfy the obligations of the exact versions
+you modify or redistribute, including applicable corresponding-source requirements.
+Do not copy upstream code assuming that API compatibility grants permission to
+relicense it. Review licensing before distributing a combined or modified product.
+
+The private operational repository is not required to contribute to this project.
+Removing files from current source does not remove them from old public Git history;
+review historical exposure separately rather than publishing production material.
