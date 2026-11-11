@@ -1,6 +1,6 @@
 # Contributing
 
-Read `docs/development.md` before changing code or contracts.
+Read [the development guide](docs/development.md) before changing code or contracts.
 Use synthetic test data. Never submit customer links, real credentials, databases,
 private deployment configuration or personal troubleshooting notes.
 
@@ -18,3 +18,9 @@ and compatible licensing for any reused code; see
 AI-assisted contributions are welcome. Describe substantial AI assistance in the
 pull request, review the result, and be able to explain and maintain it. The same
 testing, security and licensing requirements apply.
+
+File server/API issues here and CLI/Telegram interaction issues in `keyholder-admin`.
+Include compatible component versions and reproduction steps with synthetic data.
+Infrastructure-specific procedures belong to the operator, not public application
+issues. Cross-repository work uses linked changes and explicit compatibility tests,
+not copied source or submodule updates.
