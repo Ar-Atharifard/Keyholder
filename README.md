@@ -42,7 +42,7 @@ arbitrary database engines and panel APIs are not.
 
 | Guide | Contents |
 | --- | --- |
-| [Configuration](docs/configuration.md) | Environment, credentials and persistent identity |
+| [Configuration](docs/configuration.md) | Environment, credentials and updates |
 | [API](docs/api.md) | Authentication, account operations and subscription contracts |
 | [Billing](docs/billing.md) | Ledger, receipts and storage rules; examples use the separate admin client |
 | [Development](docs/development.md) | Code ownership, compatibility and local checks |

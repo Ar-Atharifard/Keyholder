@@ -21,3 +21,43 @@ The application does not install the `keyholder` command or a Telegram bot. Use 
 separate public `keyholder-admin` package and a compatible authorized dispatcher.
 Host services, SSH policy, backups and production deployment are operator concerns,
 not application environment setup.
+
+## Updating an existing installation
+
+Keep production configuration separate from the repository example. To select a
+local production Compose file with ordinary commands, put this in the checkout's
+ignored `.env` (preserve any existing settings):
+
+```dotenv
+COMPOSE_FILE=compose.prod.yml
+```
+
+Keep that production file out of Git. Preserve the existing Compose project name,
+data volume, public URL, credentials, encryption key and networking. Do not replace
+working settings with `.env.example` during an upgrade.
+
+After a backup and compatibility review, a code-only update built on the host is:
+
+```sh
+git pull --ff-only
+docker compose config --quiet
+docker compose up -d --build --no-deps api
+```
+
+Run from the checkout. Use `sudo` where Docker access requires it. For GitHub-built
+images, load the verified archive and select that image in production configuration;
+start with `--no-build --pull never` instead. See [CI artifacts](ci.md).
+
+For schema changes, pause administrative writers, back up SQLite and its encryption
+key, then build and migrate before starting the API:
+
+```sh
+docker compose build api
+docker compose stop api
+docker compose run --rm --no-deps --pull never --entrypoint /app/.venv/bin/alembic api upgrade head
+docker compose up -d --no-build --no-deps api
+```
+
+Stop on failure. Verify `/health`, administration and an existing subscription before
+resuming writers. Keep the previous image and backup: reverting an image does not
+undo a database migration. Do not run `docker compose down --volumes` during updates.
