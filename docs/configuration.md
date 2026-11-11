@@ -20,4 +20,4 @@ settings externally.
 The application does not install the `keyholder` command or a Telegram bot. Use the
 separate public `keyholder-admin` package and a compatible authorized dispatcher.
 Host services, SSH policy, backups and production deployment are operator concerns,
-not application environment setup. No private repository is required to run the API.
+not application environment setup.

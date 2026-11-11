@@ -11,12 +11,10 @@ receipt images without automatically changing a customer's proxy plan.
 | --- | --- |
 | **keyholder** (this repository) | API, SQLite database and migrations, account operations, subscription rendering and billing/storage rules |
 | [keyholder-admin](https://github.com/Ar-Atharifard/keyholder-admin) | Independently installed CLI and Telegram management client |
-| **keyholder-infra** (private) | Operator-specific deployment, networking, monitoring, host dispatcher and disaster recovery |
 
-These are independent repositories, not submodules. The backend does not require
-client source or access to the private repository. Clients communicate through the
-administrative API; deployment tools install reviewed images and packages. Package
-versions are independent, with compatibility defined by the API/protocol contract.
+The backend and client are independently installed and communicate through the
+administrative API. Deployment, monitoring and disaster recovery are managed
+separately by operators.
 
 ## Run locally
 

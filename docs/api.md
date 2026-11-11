@@ -185,5 +185,5 @@ traffic reset, reconciliation and inbound replacement. The API owns panel creden
 Clients must inspect state after an uncertain mutation response before retrying.
 
 This additive endpoint preserves the existing `/admin/customers` and subscription
-contracts. It is available in core 0.3.0 with the repository split. Pin the release
-commit, image digest and artifact checksums to distinguish it from earlier builds.
+contracts. It is available from core 0.3.0. Record the source commit and exact image/package
+identity when deploying.
